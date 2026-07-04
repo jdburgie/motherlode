@@ -24,7 +24,7 @@ package body Render is
    -- Refresh_Screen --
    --------------------
 
-   procedure Refresh_Screen (Acc : not null Screen.Framebuffer_Access) is
+   procedure Refresh_Screen (Acc : not null Frame_Buffer_Access) is
    begin
       if not First_TX then
          Screen.Wait_End_Of_DMA;
@@ -39,7 +39,7 @@ package body Render is
                           Y_End   => Screen.Height - 1);
 
       Screen.Start_Pixel_TX;
-      Screen.Start_DMA (Acc);
+      Screen.Start_DMA (Acc.all'Address, Acc.all'Length);
    end Refresh_Screen;
 
    ---------------
