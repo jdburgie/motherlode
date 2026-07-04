@@ -32,6 +32,8 @@ package body Player is
    --  Data for the drill animation
    Drill_Anim : Drill_Anim_Rec;
 
+   Max_Depth : Natural := 0;
+
    type Collision_Points is array (Natural range <>) of GESTE.Pix_Point;
 
    --  Bounding Box points
@@ -85,7 +87,13 @@ package body Player is
       P.Set_Speed ((0.0, 0.0));
       P.Money := 0;
       P.Fuel := Parameters.Start_Fuel;
+      P.Cargo := (others => 0);
+      P.Cargo_Sum := 0;
       P.Equip_Level := (others => 1);
+      P.Cash_In := 0;
+      P.Cash_In_TTL := 0;
+      Max_Depth := 0;
+      Drill_Anim.In_Progress := False;
 
       Move ((Parameters.Spawn_X, Parameters.Spawn_Y));
    end Spawn;
@@ -165,6 +173,85 @@ package body Player is
 
    function Money return Natural
    is (P.Money);
+
+   ------------------
+   -- Export_State --
+   ------------------
+
+   function Export_State return Save_State
+   is
+     ((X                => Position.X,
+       Y                => Position.Y,
+       Money            => P.Money,
+       Fuel_Thousandths => Natural (P.Fuel * 1_000.0),
+       Cargo            => P.Cargo,
+       Equipment        => P.Equip_Level,
+       Maximum_Depth    => Max_Depth));
+
+   ------------------
+   -- Import_State --
+   ------------------
+
+   procedure Import_State (State : Save_State) is
+      Fuel_Max : constant Float :=
+        Float (Parameters.Tank_Capacity (State.Equipment (Parameters.Tank)));
+   begin
+      P.Money := State.Money;
+      P.Fuel := Float'Min (Float (State.Fuel_Thousandths) / 1_000.0,
+                           Fuel_Max);
+      P.Cargo := State.Cargo;
+      P.Equip_Level := State.Equipment;
+      P.Cargo_Sum := 0;
+      P.Cash_In := 0;
+      P.Cash_In_TTL := 0;
+      Max_Depth := State.Maximum_Depth;
+
+      P.Set_Mass (Parameters.Empty_Mass);
+      for Kind in World.Valuable_Cell loop
+         P.Cargo_Sum := P.Cargo_Sum + P.Cargo (Kind);
+         P.Set_Mass
+           (P.Mass
+            + GESTE.Maths_Types.Value
+              (Float (P.Cargo (Kind) * Parameters.Weight (Kind))));
+      end loop;
+
+      Drill_Anim.In_Progress := False;
+      Grounded := False;
+      Going_Up := False;
+      Going_Down := False;
+      Going_Left := False;
+      Going_Right := False;
+      Using_Drill := False;
+
+      Move ((State.X, State.Y));
+   end Import_State;
+
+   -------------------
+   -- Maximum_Depth --
+   -------------------
+
+   function Maximum_Depth return Natural
+   is (Max_Depth);
+
+   ---------------
+   -- Net_Worth --
+   ---------------
+
+   function Net_Worth return Natural is
+      Result : Natural := P.Money;
+   begin
+      for Kind in World.Valuable_Cell loop
+         Result := Result + P.Cargo (Kind) * Parameters.Value (Kind);
+      end loop;
+
+      for Kind in Parameters.Equipment loop
+         for Level in Parameters.Equipment_Level range 2 .. P.Equip_Level (Kind) loop
+            Result := Result + Parameters.Price (Kind, Level);
+         end loop;
+      end loop;
+
+      return Result;
+   end Net_Worth;
 
    ------------------
    -- Put_In_Cargo --
@@ -536,11 +623,19 @@ package body Player is
    ------------
 
    procedure Update is
+      Depth : Natural;
    begin
       if Drill_Anim.In_Progress then
          Update_Drill_Anim;
       else
          Update_Motion;
+      end if;
+
+      if Position.Y > 0 then
+         Depth := Natural (Position.Y / World.Cell_Size);
+         if Depth > Max_Depth then
+            Max_Depth := Depth;
+         end if;
       end if;
 
       Going_Up := False;

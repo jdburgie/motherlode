@@ -12,7 +12,9 @@ with World; use World;
 with Player;
 with Cargo_Menu;
 with Equipment_Menu;
+with Pause_Menu;
 with Render;
+with Save_System;
 
 package body Motherload is
 
@@ -29,17 +31,27 @@ package body Motherload is
    -- Run --
    ---------
 
-   procedure Run is
+   procedure Run (Continue_Game : Boolean := False) is
       Period : constant Time.Time_Ms := Parameters.Frame_Period;
       Next_Release : Time.Time_Ms;
+      Loaded : Boolean;
 
    begin
       Next_Release := Time.Clock;
 
       Sound.Stop_Music;
 
-      Generate_Ground;
-      Player.Spawn;
+      if Continue_Game then
+         Save_System.Load_Current (Loaded);
+
+         if not Loaded then
+            Generate_Ground;
+            Player.Spawn;
+         end if;
+      else
+         Generate_Ground;
+         Player.Spawn;
+      end if;
 
       loop
          Controls.Scan;
@@ -60,6 +72,20 @@ package body Motherload is
 
          if Controls.Falling (Controls.Sel) then
             Cargo_Menu.Run;
+            Next_Release := Time.Clock;
+         end if;
+
+         if Controls.Falling (Controls.Start) then
+            case Pause_Menu.Run is
+               when Pause_Menu.Resume =>
+                  null;
+               when Pause_Menu.Save_Game =>
+                  Save_System.Save_Current;
+               when Pause_Menu.Save_And_Quit =>
+                  Save_System.Save_Current;
+                  return;
+            end case;
+
             Next_Release := Time.Clock;
          end if;
 

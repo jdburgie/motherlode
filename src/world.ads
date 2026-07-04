@@ -10,6 +10,7 @@ package World is
      with Size => 4;
 
    subtype Valuable_Cell is Cell_Kind range Coal .. Diamond;
+   subtype Persisted_Cell is Natural range 0 .. 6;
 
    Cell_Size : constant := 16;
 
@@ -21,6 +22,9 @@ package World is
 
    function Get_Cell (CX, CY : Natural) return Cell_Kind;
    pragma Inline (Get_Cell);
+
+   function Export_Cell (Kind : Cell_Kind) return Persisted_Cell;
+   function Import_Cell (Value : Persisted_Cell) return Cell_Kind;
 
    procedure Generate_Ground;
 
