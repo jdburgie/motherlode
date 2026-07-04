@@ -73,9 +73,9 @@ The finished modification should support:
 
 ## Current Status
 
-**Last updated:** 2026-07-04 00:58 MDT
+**Last updated:** 2026-07-04 01:30 MDT
 
-**Phase:** Stock firmware build restored. Design is complete, but SD save gameplay code has not started.
+**Phase:** In-memory save/continue flow implemented. SD-card persistence has not started.
 
 ### Completed
 
@@ -88,25 +88,30 @@ The finished modification should support:
 - Build diagnostics are uploaded even when compilation fails.
 - Draft PR `#1` opened so pull-request workflow runs and logs can be inspected.
 - CI now builds the stock game from this branch and uploads a UF2 artifact.
-- Latest successful CI run: `28698499607`.
-- Latest artifact source commit: `eb389ac53eb790f1243cd34db88103f86c77e43e`.
-- Latest UF2 artifact checksum: `af6db71daf83751ca0e814ee90603a6c186f011964d6aac63486b8d1b571a38f`.
+- Portable player save-state export/import added.
+- Explicit world-cell byte encoding added.
+- In-memory full-game snapshot backend added.
+- Title screen now supports Continue when a snapshot exists.
+- Pause menu added with Resume, Save Game, and Save and Quit.
+- Latest successful CI run: `28699039890`.
+- Latest artifact source commit: `5dbf318953dba70289160eb0222bd2bd010e6002`.
+- Latest UF2 artifact checksum: `4d20e01567d6b491d8325c421f6782950954b0e44b9195b78d4c62ea6f4a1640`.
 - The PyGamer USB bootloader was reached after double-tapping Reset. No new firmware was flashed.
 
 ### Not completed
 
-- No Ada gameplay source has been changed for persistence.
 - SD SPI initialization and FAT mounting have not been implemented.
+- Saves do not survive reset or power loss yet; the current backend is RAM only.
 - No simulator test, hardware test, or power-loss test has been performed.
-- The current branch still behaves like stock Motherlode because persistence is not implemented yet.
+- Persistent high scores have not been implemented.
 
 ## Immediate Blocker
 
-No build blocker remains for the stock game. The current blocker for the feature is implementation: persistent save state, SD-card block/FAT access, menus, high scores, and hardware validation have not been written yet.
+No build blocker remains. The current blocker for true persistence is storage implementation: SD-card block access, FAT file IO, alternating save slots, CRC validation, and hardware validation have not been written yet.
 
 ## Next Exact Task
 
-Flash `dist/motherlode-sd-save-highscores.uf2` to the PyGamer and smoke-test the stock game. If it runs acceptably with the synchronous screen refresh path, begin Stage 1 by adding portable player/world state interfaces.
+Flash `dist-5dbf318/motherlode-sd-save-highscores.uf2` to the PyGamer and smoke-test New Game, Start pause menu, Save Game, Save and Quit, title-screen Continue, display, controls, and audio. If that works, replace the RAM-only `Save_System` backend with serialized SD-card storage.
 
 ## Reproducible Build Inputs
 
@@ -151,7 +156,7 @@ This section records the practical path from a non-building source branch to a C
 
 The branch now builds a flashable firmware artifact in GitHub Actions, but the firmware is still stock gameplay. Getting the build green did not implement SD save/load support.
 
-Latest known-good CI build:
+Latest known-good stock-game CI build before save-flow work:
 
 ```text
 Workflow: Build PyGamer UF2
@@ -163,6 +168,17 @@ SHA-256:  af6db71daf83751ca0e814ee90603a6c186f011964d6aac63486b8d1b571a38f
 ```
 
 The same firmware bytes were produced at `0e24821`; the later `eb389ac` run only adds journal documentation, so the binary checksum stayed unchanged.
+
+Latest known-good save-flow CI build:
+
+```text
+Workflow: Build PyGamer UF2
+Run:      28699039890
+Commit:   5dbf318953dba70289160eb0222bd2bd010e6002
+Artifact: motherlode-sd-save-highscores-uf2
+UF2:      motherlode-sd-save-highscores.uf2
+SHA-256:  4d20e01567d6b491d8325c421f6782950954b0e44b9195b78d4c62ea6f4a1640
+```
 
 ### Local machine limitation
 
@@ -430,6 +446,17 @@ The workflow currently:
 - Firmware artifact uploaded: `motherlode-sd-save-highscores-uf2`
 - UF2 checksum: `af6db71daf83751ca0e814ee90603a6c186f011964d6aac63486b8d1b571a38f`
 
+### Run 28, workflow run `28699039890`
+
+- Checkout: success
+- Alire installation: success
+- Dependency resolution: success
+- Production build: success
+- UF2 conversion: success
+- Firmware artifact uploaded: `motherlode-sd-save-highscores-uf2`
+- UF2 checksum: `4d20e01567d6b491d8325c421f6782950954b0e44b9195b78d4c62ea6f4a1640`
+- Main finding: in-memory save/continue feature slice compiles and packages.
+
 ## Commits Created During This Work
 
 ```text
@@ -449,6 +476,10 @@ a80ad52  Adapt framebuffer refresh to PyGamer BSP
 54a4c3c  Use synchronous PyGamer screen refresh
 eebe8ad  Enable Ada 202x extensions in firmware CI
 0e24821  Download UF2 family metadata in CI
+eb389ac  Record successful firmware artifact
+9ab46e8  Document firmware build reconstruction
+4cdedec  Add in-memory save and continue flow
+5dbf318  Fix title action dispatch
 ```
 
 This journal update is the next commit after those entries.
@@ -553,10 +584,13 @@ Status: **CI complete; hardware smoke test pending**
 
 ### Stage 1: Portable in-memory state
 
-- Add `Player_Save_State`.
-- Add `Export_State` and `Import_State`.
-- Add `Maximum_Depth` and `Net_Worth`.
-- Add explicit world-cell encoding and decoding helpers.
+- [x] Add player `Save_State`.
+- [x] Add `Export_State` and `Import_State`.
+- [x] Add `Maximum_Depth` and `Net_Worth`.
+- [x] Add explicit world-cell encoding and decoding helpers.
+- [x] Add temporary in-memory full-game save backend.
+- [x] Wire title Continue and pause Save/Quit flow.
+- [ ] Hardware smoke-test the in-memory save flow.
 
 ### Stage 2: Serialization core
 
@@ -675,6 +709,61 @@ Then:
 - Name the exact next file and edit.
 
 ## Session Log
+
+### 2026-07-04, in-memory save and continue feature slice
+
+**Starting point**
+
+- Branch: `feature/sd-save-highscores`
+- Starting commit: `9ab46e8`
+- Machine/OS: local Codex workspace plus GitHub Actions on Ubuntu 22.04
+- Hardware connected: not tested in this session
+
+**Completed**
+
+- Added portable `Player.Save_State` with cargo, equipment, money, fuel, position, and maximum depth.
+- Added `Player.Export_State`, `Player.Import_State`, `Player.Maximum_Depth`, and `Player.Net_Worth`.
+- Added explicit world-cell encoding/decoding helpers.
+- Added `Save_System`, currently backed by RAM, storing one full player/world snapshot.
+- Added `Pause_Menu` with Resume, Save Game, and Save and Quit.
+- Changed title screen to return New Game or Continue.
+- Changed main/game loop to continue from saved state when selected.
+- Produced a CI-built UF2 for the feature slice.
+
+**Files changed**
+
+- `src/player.ads`, `src/player.adb`: portable player state and restoration.
+- `src/world.ads`, `src/world.adb`: explicit persisted cell encoding.
+- `src/save_system.ads`, `src/save_system.adb`: RAM-backed full-game snapshot.
+- `src/pause_menu.ads`, `src/pause_menu.adb`: pause/save menu.
+- `src/title_screen.ads`, `src/title_screen.adb`: Continue/New Game title flow.
+- `src/motherload.ads`, `src/motherload.adb`: continue startup and pause menu integration.
+- `src/main.adb`: dispatch title-screen action into game startup.
+- `PROJECT_JOURNAL.md`: recorded feature state and artifact.
+
+**Tests and results**
+
+- GitHub Actions run `28698994108`: failed on Ada enum equality visibility in `main.adb`.
+- GitHub Actions run `28699039890`: success.
+- Produced `dist-5dbf318/motherlode-sd-save-highscores.uf2`.
+- UF2 SHA-256: `4d20e01567d6b491d8325c421f6782950954b0e44b9195b78d4c62ea6f4a1640`.
+- No hardware smoke test performed yet.
+
+**Commits pushed**
+
+- `4cdedec` Add in-memory save and continue flow
+- `5dbf318` Fix title action dispatch
+
+**Problems or unresolved questions**
+
+- Saves are RAM-only and disappear on reset or power loss.
+- The feature has not been validated on PyGamer hardware.
+- The synchronous screen refresh path still needs performance validation.
+- Persistent high scores are not implemented yet.
+
+**Next exact action**
+
+- Flash `dist-5dbf318/motherlode-sd-save-highscores.uf2` and verify New Game, Start pause menu, Save Game, Save and Quit, Continue, and regular gameplay. Then implement a serialized save payload and SD/FAT backend behind `Save_System`.
 
 ### 2026-07-04, stock firmware UF2 build restored
 
