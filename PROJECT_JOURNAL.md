@@ -81,6 +81,8 @@ Completed:
 - Development branch created: `feature/sd-save-highscores`.
 - Save-system architecture documented in `docs/SD_SAVE_DESIGN.md`.
 - Initial design commit: `d126e06`.
+- Project journal added in commit `28ff779`.
+- README journal links added in commit `83f0c7f`.
 - Confirmed that player state is centralized in `src/player.ads` and `src/player.adb`.
 - Confirmed that the mine is a 30 x 600 cell array in `src/world.ads`.
 - Confirmed that a fresh world and player are currently created every time `Motherload.Run` starts.
@@ -321,7 +323,8 @@ Then:
 - Inspected the player, world, main loop, and title screen architecture.
 - Confirmed the relevant PyGamer SD pins and separate screen/SD SPI controllers.
 - Added `docs/SD_SAVE_DESIGN.md` in commit `d126e06`.
-- Added this portable project journal.
+- Added `PROJECT_JOURNAL.md` in commit `28ff779`.
+- Linked the journal and design document from the README in commit `83f0c7f`.
 
 **Tests**
 
@@ -338,7 +341,7 @@ Then:
 
 Copy this section to the top of the Session Log after each work session:
 
-```markdown
+````markdown
 ### YYYY-MM-DD, short session title
 
 **Starting point**
@@ -377,4 +380,4 @@ paste exact commands here
 **Next exact action**
 
 - Open `path` and implement/check ...
-```
+````
