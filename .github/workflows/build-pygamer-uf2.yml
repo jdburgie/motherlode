@@ -32,6 +32,15 @@ jobs:
           alr update 2>&1 | tee diagnostics/alire-update.log
           alr printenv 2>&1 | tee diagnostics/alire-environment.log
 
+      - name: Apply GPR target compatibility alias
+        shell: bash
+        run: |
+          set -euo pipefail
+          alr exec -- sh -c '
+            sed -i "s/for Target use \"arm-eabi\";/for Target use \"arm-elf\";/" "$PYGAMER_BSP_ALIRE_PREFIX/pygamer_bsp.gpr"
+            cat "$PYGAMER_BSP_ALIRE_PREFIX/pygamer_bsp.gpr"
+          ' 2>&1 | tee diagnostics/pygamer-bsp-patched.gpr.txt
+
       - name: Inventory ARM toolchain
         shell: bash
         run: |
