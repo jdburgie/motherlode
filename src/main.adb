@@ -11,6 +11,9 @@ procedure Main is
 begin
 
    loop
-      Motherload.Run (Title_Screen.Run = Title_Screen.Continue_Game);
+      Motherload.Run
+        (case Title_Screen.Run is
+            when Title_Screen.New_Game      => False,
+            when Title_Screen.Continue_Game => True);
    end loop;
 end Main;
