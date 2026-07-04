@@ -73,9 +73,9 @@ The finished modification should support:
 
 ## Current Status
 
-**Last updated:** 2026-07-03 23:52 MDT
+**Last updated:** 2026-07-04 00:58 MDT
 
-**Phase:** Build-environment reconstruction. Design is complete, but SD save gameplay code has not started.
+**Phase:** Stock firmware build restored. Design is complete, but SD save gameplay code has not started.
 
 ### Completed
 
@@ -87,67 +87,25 @@ The finished modification should support:
 - GitHub Actions workflow added to build an ELF, convert it to UF2, and upload artifacts.
 - Build diagnostics are uploaded even when compilation fails.
 - Draft PR `#1` opened so pull-request workflow runs and logs can be inspected.
+- CI now builds the stock game from this branch and uploads a UF2 artifact.
+- Latest successful CI run: `28698247768`.
+- Latest UF2 artifact checksum: `af6db71daf83751ca0e814ee90603a6c186f011964d6aac63486b8d1b571a38f`.
 - The PyGamer USB bootloader was reached after double-tapping Reset. No new firmware was flashed.
 
 ### Not completed
 
-- No new UF2 has been produced yet.
 - No Ada gameplay source has been changed for persistence.
 - SD SPI initialization and FAT mounting have not been implemented.
 - No simulator test, hardware test, or power-loss test has been performed.
-- The current branch still behaves like stock Motherlode because its functional changes are build and documentation plumbing only.
+- The current branch still behaves like stock Motherlode because persistence is not implemented yet.
 
 ## Immediate Blocker
 
-Dependency resolution succeeds, but GPRbuild cannot associate the installed ARM Ada compiler with the requested runtime.
-
-Current build error after changing the BSP target to `arm-elf`:
-
-```text
-gprconfig: can't find a toolchain for the following configuration:
-gprconfig: language 'ada', target 'arm-elf', runtime 'zfp-cortex-m4f'
-...
-geste.gpr:1:09: no compiler for language "Ada", cannot compile "geste_fonts-freesansoblique12pt7b.ads"
-gprbuild: *** compilation phase failed
-```
-
-Before the compatibility patch, the same error named target `arm-eabi` instead.
-
-The inventory proved that:
-
-- `arm-eabi-gcc` exists and identifies itself as the GNAT ARM compiler.
-- `arm-elf-gcc` does not exist.
-- Runtime directory `arm-eabi/lib/gnat/zfp-cortex-m4f` exists.
-- Alire selected the system GPRbuild package reported as `gprbuild_2021.0.0_system`.
-- The problem is discovery/configuration, not a missing compiler binary or missing runtime directory.
+No build blocker remains for the stock game. The current blocker for the feature is implementation: persistent save state, SD-card block/FAT access, menus, high scores, and hardware validation have not been written yet.
 
 ## Next Exact Task
 
-Replace the external Ubuntu GPRbuild selection with an Alire-packaged GPRbuild release, preferably beginning with `gprbuild = "=21.0.2"` or `22.0.1`, rerun CI, and inspect whether it recognizes:
-
-```text
-target:  arm-eabi
-runtime: zfp-cortex-m4f
-```
-
-Recommended first edit:
-
-```toml
-# alire.toml
-
-gprbuild = "=21.0.2"
-```
-
-Then remove the temporary `arm-elf` patch from the workflow and try the BSP's original `arm-eabi` target first.
-
-If packaged GPRbuild still fails:
-
-1. Run `gprconfig` explicitly against `arm-eabi-gcc`.
-2. Save the generated configuration file as a diagnostic artifact.
-3. Test `gprbuild --config=<generated-file>`.
-4. Only then consider maintaining a patched BSP project file or compiler aliases.
-
-Do not begin the SD driver until the stock game builds successfully from a clean checkout.
+Flash `dist/motherlode-sd-save-highscores.uf2` to the PyGamer and smoke-test the stock game. If it runs acceptably with the synchronous screen refresh path, begin Stage 1 by adding portable player/world state interfaces.
 
 ## Reproducible Build Inputs
 
@@ -158,7 +116,7 @@ pygamer_bsp = 0.1.0
 geste        = 1.0.0
 virtapu      = 0.1.1
 gnat_arm_elf = 10.3.1
-gprbuild     = *
+gprbuild     = 21.0.2
 ```
 
 Resolved transitive dependencies observed in CI:
@@ -172,7 +130,7 @@ samd51_hal = 0.1.0
 The current build command is:
 
 ```bash
-alr build -- -XMOTHERLODE_BUILD=Production
+alr build -- -XMOTHERLODE_BUILD=Production -cargs:Ada -gnatX
 ```
 
 The original repository's UF2 conversion process is:
@@ -191,14 +149,13 @@ The workflow currently:
 1. Checks out the branch.
 2. Installs Alire using `alire-project/setup-alire@v6`.
 3. Resolves pinned dependencies and records the environment.
-4. Temporarily changes `pygamer_bsp.gpr` from `arm-eabi` to `arm-elf` for diagnosis.
-5. Inventories compiler binaries, targets, and runtime directories.
-6. Attempts a Production build.
-7. Converts the ELF to a UF2 only if compilation succeeds.
-8. Uploads firmware artifacts on success.
-9. Uploads diagnostic logs even on failure.
-
-The temporary `arm-elf` edit is diagnostic, not a settled design decision.
+4. Inventories compiler binaries, targets, and runtime directories.
+5. Builds Production firmware with `-gnatX` enabled for dependency compatibility.
+6. Converts the ELF to BIN with `arm-eabi-objcopy`.
+7. Downloads `uf2conv.py` and `uf2families.json`.
+8. Converts the BIN to UF2.
+9. Uploads firmware artifacts on success.
+10. Uploads diagnostic logs even on failure.
 
 ## GitHub Actions Attempts
 
@@ -236,7 +193,15 @@ The temporary `arm-elf` edit is diagnostic, not a settled design decision.
 - Production build: failed
 - Error moved from target `arm-eabi` to target `arm-elf`, proving the label patch alone does not solve discovery.
 
-No run produced a firmware artifact.
+### Run 20, workflow run `28698247768`
+
+- Checkout: success
+- Alire installation: success
+- Dependency resolution: success
+- Production build: success
+- UF2 conversion: success
+- Firmware artifact uploaded: `motherlode-sd-save-highscores-uf2`
+- UF2 checksum: `af6db71daf83751ca0e814ee90603a6c186f011964d6aac63486b8d1b571a38f`
 
 ## Commits Created During This Work
 
@@ -251,6 +216,12 @@ d126e06  Document SD save and high-score design
 9f899a2  Preserve firmware build diagnostics
 d01b7d9  Inventory ARM cross-toolchain in CI
 a275817  Apply GPR arm-elf compatibility alias
+43dbfa7  Journal build investigation and CI attempts
+e645445  Try packaged GPRbuild for PyGamer CI
+a80ad52  Adapt framebuffer refresh to PyGamer BSP
+54a4c3c  Use synchronous PyGamer screen refresh
+eebe8ad  Enable Ada 202x extensions in firmware CI
+0e24821  Download UF2 family metadata in CI
 ```
 
 This journal update is the next commit after those entries.
@@ -340,17 +311,17 @@ Powering up alone does not prove a cable carries USB data.
 
 ### Stage 0: Reproduce the original build
 
-Status: **in progress**
+Status: **CI complete; hardware smoke test pending**
 
 - [x] Identify likely historical dependencies.
 - [x] Add an Alire manifest.
 - [x] Add a CI builder.
 - [x] Locate and modernize the UF2 conversion sequence.
 - [x] Capture compiler diagnostics.
-- [ ] Correct GPRbuild/compiler/runtime discovery.
-- [ ] Produce the original ELF from the branch.
-- [ ] Produce a UF2 artifact.
-- [ ] Record flash and RAM use.
+- [x] Correct GPRbuild/compiler/runtime discovery.
+- [x] Produce the original ELF from the branch.
+- [x] Produce a UF2 artifact.
+- [x] Record flash and RAM use through the CI build log.
 - [ ] Flash and smoke-test on the PyGamer.
 
 ### Stage 1: Portable in-memory state
@@ -477,6 +448,57 @@ Then:
 - Name the exact next file and edit.
 
 ## Session Log
+
+### 2026-07-04, stock firmware UF2 build restored
+
+**Starting point**
+
+- Branch: `feature/sd-save-highscores`
+- Starting commit: `43dbfa7`
+- Machine/OS: local Codex workspace plus GitHub Actions on Ubuntu 22.04
+- Hardware connected: not tested in this session
+
+**Completed**
+
+- Confirmed branch contained documentation/build work only; SD save gameplay code had not started.
+- Pinned Alire-packaged `gprbuild = "=21.0.2"`.
+- Removed the temporary workflow patch that rewrote the BSP target to `arm-elf`.
+- Adapted Motherlode rendering to the older Alire PyGamer BSP screen API.
+- Enabled `-gnatX` for dependency code that uses an Ada 202x feature.
+- Downloaded `uf2families.json` alongside `uf2conv.py`.
+- Produced and downloaded a CI-built UF2 artifact.
+
+**Files changed**
+
+- `alire.toml`: pinned packaged GPRbuild.
+- `.github/workflows/build-pygamer-uf2.yml`: removed target patch, added `-gnatX`, downloaded UF2 metadata.
+- `src/render.ads`: added local framebuffer access type.
+- `src/render.adb`: switched screen refresh to synchronous `Push_Pixels`.
+- `PROJECT_JOURNAL.md`: recorded the successful build.
+
+**Tests and results**
+
+- GitHub Actions run `28698247768`: success.
+- Produced `dist/motherlode-sd-save-highscores.uf2`.
+- UF2 SHA-256: `af6db71daf83751ca0e814ee90603a6c186f011964d6aac63486b8d1b571a38f`.
+- No hardware smoke test performed yet.
+
+**Commits pushed**
+
+- `e645445` Try packaged GPRbuild for PyGamer CI
+- `a80ad52` Adapt framebuffer refresh to PyGamer BSP
+- `54a4c3c` Use synchronous PyGamer screen refresh
+- `eebe8ad` Enable Ada 202x extensions in firmware CI
+- `0e24821` Download UF2 family metadata in CI
+
+**Problems or unresolved questions**
+
+- The produced firmware is stock gameplay from this branch, not an SD-save implementation.
+- The synchronous screen refresh path may perform differently than the original DMA-based render path and needs hardware testing.
+
+**Next exact action**
+
+- Flash `dist/motherlode-sd-save-highscores.uf2` to the PyGamer and smoke-test display, controls, audio, and gameplay before starting Stage 1 state export/import work.
 
 ### 2026-07-03, build reconstruction and UF2 pipeline
 
