@@ -1,6 +1,6 @@
 # Motherlode SD Save Project Journal
 
-This file is the canonical handoff record for the SD-card save and high-score modification. Keep it current so work can resume from any computer without relying on chat history or local notes.
+This is the canonical handoff record for the SD-card save and high-score modification. Keep it current so work can resume from any computer without relying on chat history or local notes.
 
 ## Resume in One Minute
 
@@ -17,15 +17,14 @@ Then read, in order:
 
 1. `PROJECT_JOURNAL.md`
 2. `docs/SD_SAVE_DESIGN.md`
-3. The latest commits:
+3. `.github/workflows/build-pygamer-uf2.yml`
+4. The latest commits:
 
 ```bash
-git log --oneline --decorate -10
+git log --oneline --decorate -15
 ```
 
 ### Existing clone
-
-Before doing anything else:
 
 ```bash
 cd motherlode
@@ -35,7 +34,7 @@ git switch feature/sd-save-highscores
 git pull --ff-only origin feature/sd-save-highscores
 ```
 
-Do not discard or overwrite uncommitted work. If `git status` is not clean, commit it to a temporary branch or stash it with a descriptive message before pulling.
+Do not discard uncommitted work. Commit it to a temporary branch or stash it with a descriptive message before pulling.
 
 ## Repository Coordinates
 
@@ -43,18 +42,21 @@ Do not discard or overwrite uncommitted work. If `git status` is not clean, comm
 - Original upstream: `https://github.com/Fabien-Chouteau/motherlode`
 - Default branch: `master`
 - Development branch: `feature/sd-save-highscores`
+- Draft pull request: `#1`, Build PyGamer UF2 from SD-save branch
 - Target hardware: Adafruit PyGamer M4
 - Language: Ada
-- Project file: `motherlode.gpr`
+- Main project file: `motherlode.gpr`
+- Alire manifest: `alire.toml`
+- CI workflow: `.github/workflows/build-pygamer-uf2.yml`
 
-Recommended remotes for a local clone:
+Recommended remotes:
 
 ```bash
 git remote -v
 git remote add upstream https://github.com/Fabien-Chouteau/motherlode.git
 ```
 
-If `upstream` already exists, do not add it again.
+Do not add `upstream` again if it already exists.
 
 ## Current Objective
 
@@ -67,39 +69,191 @@ The finished modification should support:
 - Persistent high scores.
 - Power-loss-safe alternating save slots.
 - A pause/save menu and updated title screen.
-- A release UF2 that can be copied to `PYGAMERBOOT`.
+- A tested release UF2 that can be copied to `PYGAMERBOOT`.
 
 ## Current Status
 
-**Last updated:** 2026-07-03 MDT
+**Last updated:** 2026-07-03 23:52 MDT
 
-**Phase:** Design complete, implementation not yet started.
+**Phase:** Build-environment reconstruction. Design is complete, but SD save gameplay code has not started.
 
-Completed:
+### Completed
 
 - Fork created at `jdburgie/motherlode`.
 - Development branch created: `feature/sd-save-highscores`.
 - Save-system architecture documented in `docs/SD_SAVE_DESIGN.md`.
-- Initial design commit: `d126e06`.
-- Project journal added in commit `28ff779`.
-- README journal links added in commit `83f0c7f`.
-- Confirmed that player state is centralized in `src/player.ads` and `src/player.adb`.
-- Confirmed that the mine is a 30 x 600 cell array in `src/world.ads`.
-- Confirmed that a fresh world and player are currently created every time `Motherload.Run` starts.
-- Confirmed that the title screen currently offers only New Game and Credits.
+- Portable project journal added and linked from the README.
+- Reproducible Alire manifest added with pinned 2020-era dependencies.
+- GitHub Actions workflow added to build an ELF, convert it to UF2, and upload artifacts.
+- Build diagnostics are uploaded even when compilation fails.
+- Draft PR `#1` opened so pull-request workflow runs and logs can be inspected.
+- The PyGamer USB bootloader was reached after double-tapping Reset. No new firmware was flashed.
 
-Not yet completed:
+### Not completed
 
-- Local build environment has not been reproduced or documented.
-- No Ada source files have been changed for persistence.
+- No new UF2 has been produced yet.
+- No Ada gameplay source has been changed for persistence.
 - SD SPI initialization and FAT mounting have not been implemented.
-- No simulator tests, hardware tests, or release UF2 exist for this branch.
+- No simulator test, hardware test, or power-loss test has been performed.
+- The current branch still behaves like stock Motherlode because its functional changes are build and documentation plumbing only.
 
-## Active Task
+## Immediate Blocker
 
-**Next exact task:** establish a reproducible clean build of the unmodified branch and record the required Ada/Alire toolchain, dependency, build, and UF2-generation commands in this journal.
+Dependency resolution succeeds, but GPRbuild cannot associate the installed ARM Ada compiler with the requested runtime.
 
-Do not begin the SD driver until the original code builds successfully from a clean checkout. This gives us a known-good runway instead of debugging the airplane and the runway at the same time.
+Current build error after changing the BSP target to `arm-elf`:
+
+```text
+gprconfig: can't find a toolchain for the following configuration:
+gprconfig: language 'ada', target 'arm-elf', runtime 'zfp-cortex-m4f'
+...
+geste.gpr:1:09: no compiler for language "Ada", cannot compile "geste_fonts-freesansoblique12pt7b.ads"
+gprbuild: *** compilation phase failed
+```
+
+Before the compatibility patch, the same error named target `arm-eabi` instead.
+
+The inventory proved that:
+
+- `arm-eabi-gcc` exists and identifies itself as the GNAT ARM compiler.
+- `arm-elf-gcc` does not exist.
+- Runtime directory `arm-eabi/lib/gnat/zfp-cortex-m4f` exists.
+- Alire selected the system GPRbuild package reported as `gprbuild_2021.0.0_system`.
+- The problem is discovery/configuration, not a missing compiler binary or missing runtime directory.
+
+## Next Exact Task
+
+Replace the external Ubuntu GPRbuild selection with an Alire-packaged GPRbuild release, preferably beginning with `gprbuild = "=21.0.2"` or `22.0.1`, rerun CI, and inspect whether it recognizes:
+
+```text
+target:  arm-eabi
+runtime: zfp-cortex-m4f
+```
+
+Recommended first edit:
+
+```toml
+# alire.toml
+
+gprbuild = "=21.0.2"
+```
+
+Then remove the temporary `arm-elf` patch from the workflow and try the BSP's original `arm-eabi` target first.
+
+If packaged GPRbuild still fails:
+
+1. Run `gprconfig` explicitly against `arm-eabi-gcc`.
+2. Save the generated configuration file as a diagnostic artifact.
+3. Test `gprbuild --config=<generated-file>`.
+4. Only then consider maintaining a patched BSP project file or compiler aliases.
+
+Do not begin the SD driver until the stock game builds successfully from a clean checkout.
+
+## Reproducible Build Inputs
+
+The current `alire.toml` pins:
+
+```text
+pygamer_bsp = 0.1.0
+geste        = 1.0.0
+virtapu      = 0.1.1
+gnat_arm_elf = 10.3.1
+gprbuild     = *
+```
+
+Resolved transitive dependencies observed in CI:
+
+```text
+cortex_m   = 0.3.0
+hal        = 0.4.0
+samd51_hal = 0.1.0
+```
+
+The current build command is:
+
+```bash
+alr build -- -XMOTHERLODE_BUILD=Production
+```
+
+The original repository's UF2 conversion process is:
+
+```bash
+arm-eabi-objcopy -O binary obj_target/motherlode.elf obj_target/motherlode.bin
+python3 uf2conv.py -b 0x4000 -c -o motherlode.uf2 obj_target/motherlode.bin
+```
+
+The old script used Python 2. The CI workflow has been modernized to use Python 3.
+
+## Build Workflow Behavior
+
+The workflow currently:
+
+1. Checks out the branch.
+2. Installs Alire using `alire-project/setup-alire@v6`.
+3. Resolves pinned dependencies and records the environment.
+4. Temporarily changes `pygamer_bsp.gpr` from `arm-eabi` to `arm-elf` for diagnosis.
+5. Inventories compiler binaries, targets, and runtime directories.
+6. Attempts a Production build.
+7. Converts the ELF to a UF2 only if compilation succeeds.
+8. Uploads firmware artifacts on success.
+9. Uploads diagnostic logs even on failure.
+
+The temporary `arm-elf` edit is diagnostic, not a settled design decision.
+
+## GitHub Actions Attempts
+
+### Run 3, workflow run `28696644132`
+
+- Checkout: success
+- Alire installation: success
+- Dependency resolution: success
+- Production build: failed
+- UF2 conversion: skipped
+- Main finding: GPRbuild could not find Ada toolchain for `arm-eabi` and `zfp-cortex-m4f`.
+
+### Run 5, workflow run `28696699101`
+
+- Added persistent diagnostic artifacts.
+- Dependency resolution: success
+- Production build: failed
+- Diagnostic artifact uploaded: `motherlode-build-diagnostics`
+- Confirmed the failure occurs during compiler/toolchain selection.
+
+### Run 7, workflow run `28696738167`
+
+- Added ARM toolchain inventory.
+- Dependency resolution: success
+- Toolchain inventory: success
+- Production build: failed
+- Confirmed `arm-eabi-gcc` and the `zfp-cortex-m4f` runtime directory are installed.
+- Confirmed no `arm-elf-gcc` executable exists.
+
+### Run 9, workflow run `28696789097`
+
+- Temporarily patched BSP target from `arm-eabi` to `arm-elf`.
+- Patch step: success
+- Toolchain inventory: success
+- Production build: failed
+- Error moved from target `arm-eabi` to target `arm-elf`, proving the label patch alone does not solve discovery.
+
+No run produced a firmware artifact.
+
+## Commits Created During This Work
+
+```text
+d126e06  Document SD save and high-score design
+28ff779  Add portable project journal and resume guide
+83f0c7f  Link project journal from README
+4d6099c  Fix journal template and record repository breadcrumbs
+2a58b75  Add reproducible Alire build manifest
+9631c9c  Add GitHub Actions PyGamer UF2 build
+46321cc  Run firmware build for pull requests
+9f899a2  Preserve firmware build diagnostics
+d01b7d9  Inventory ARM cross-toolchain in CI
+a275817  Apply GPR arm-elf compatibility alias
+```
+
+This journal update is the next commit after those entries.
 
 ## Important Design Decisions
 
@@ -130,12 +284,12 @@ Load the valid copy with the highest generation number. Never overwrite the only
 - Little-endian integer encoding.
 - CRC-32 over the payload.
 - Do not serialize Ada physics objects or compiler-dependent record layouts directly.
-- Store fuel as integer thousandths rather than as a raw floating-point value.
+- Store fuel as integer thousandths rather than as raw floating point.
 - Store each world cell as one explicit byte.
 
 ### Player restoration
 
-Loading must reconstruct runtime state rather than restoring opaque memory:
+Loading must reconstruct runtime state rather than restore opaque memory:
 
 - Position restored and validated.
 - Speed reset to zero.
@@ -146,7 +300,7 @@ Loading must reconstruct runtime state rather than restoring opaque memory:
 
 ### Autosave policy
 
-Autosave only at safe checkpoints such as:
+Autosave only at safe checkpoints:
 
 - After cargo is sold.
 - After an equipment purchase.
@@ -157,7 +311,7 @@ Do not write continuously during the frame loop.
 
 ## Hardware Notes
 
-The built-in microSD interface uses the normal SPI controller, separate from the display SPI controller.
+The built-in microSD interface uses a separate SPI controller from the display.
 
 ```text
 SD SPI controller: SERCOM1
@@ -170,39 +324,49 @@ Normal clock:      approximately 3 MHz
 SPI mode:          Mode 0
 ```
 
-The mine contains 18,000 cells. Using one byte per persisted cell requires approximately 18 KB per world payload, trivial on a 4 GB card.
+The mine contains 18,000 cells. One persisted byte per cell requires approximately 18 KB per world payload.
+
+PyGamer bootloader procedure:
+
+1. Connect a known-good USB data cable.
+2. Turn on the PyGamer.
+3. Double-tap Reset.
+4. Confirm the `PYGAMERBOOT` drive appears.
+5. Copy the tested UF2 to that drive.
+
+Powering up alone does not prove a cable carries USB data.
 
 ## Implementation Roadmap
 
 ### Stage 0: Reproduce the original build
 
-- Identify and install the required Ada toolchain.
-- Identify project dependencies and exact revisions.
-- Build the original firmware from a clean clone.
-- Generate or locate the UF2 conversion step.
-- Record flash and RAM use.
-- Flash and smoke-test the original build on the PyGamer.
+Status: **in progress**
+
+- [x] Identify likely historical dependencies.
+- [x] Add an Alire manifest.
+- [x] Add a CI builder.
+- [x] Locate and modernize the UF2 conversion sequence.
+- [x] Capture compiler diagnostics.
+- [ ] Correct GPRbuild/compiler/runtime discovery.
+- [ ] Produce the original ELF from the branch.
+- [ ] Produce a UF2 artifact.
+- [ ] Record flash and RAM use.
+- [ ] Flash and smoke-test on the PyGamer.
 
 ### Stage 1: Portable in-memory state
 
-Modify `Player` to expose a portable save-state type and:
-
-- `Export_State`
-- `Import_State`
-- `Maximum_Depth`
-- `Net_Worth`
-
-Add world-cell encoding and decoding helpers without changing gameplay.
+- Add `Player_Save_State`.
+- Add `Export_State` and `Import_State`.
+- Add `Maximum_Depth` and `Net_Worth`.
+- Add explicit world-cell encoding and decoding helpers.
 
 ### Stage 2: Serialization core
 
-Add:
-
 - Explicit byte writer and reader helpers.
-- Save header encoder/decoder.
+- Save header encoder and decoder.
 - CRC-32.
 - Strict validation for damaged or future-version files.
-- In-memory round-trip tests using the simulator where possible.
+- In-memory round-trip tests where possible.
 
 ### Stage 3: SD block driver and FAT
 
@@ -217,7 +381,7 @@ Add:
 - Implement alternating A/B save slots.
 - Validate magic, version, length, and CRC.
 - Choose the newest valid generation.
-- Preserve the previous slot until the new save is completely flushed.
+- Preserve the previous slot until the new save is fully flushed.
 - Fail gracefully on removal or write errors.
 
 ### Stage 5: Menus and gameplay integration
@@ -252,7 +416,7 @@ Persist up to ten records containing:
 - Highest cash balance
 - Net worth
 
-Provisional score formula:
+Provisional score:
 
 ```text
 money + purchased-upgrade value + maximum-depth-in-cells * 100
@@ -272,47 +436,88 @@ Test:
 - Full or write-protected card.
 - Save made by an older format version.
 
-Then build and publish a tested UF2.
+Then publish a tested UF2.
 
 ## Known Risks
 
-- The existing PyGamer Ada BSP does not currently expose an obvious ready-made SD-card package.
+- The PyGamer Ada BSP does not expose an obvious ready-made SD-card package.
 - FAT support and an SD protocol layer may increase firmware size significantly.
-- The PyGamer project has roughly 496 KB of application flash after the UF2 bootloader reservation, so final link size must be watched.
-- The current gameplay loop does not naturally return to the title screen, so Save and Quit requires a controlled exit path.
-- The original game does not define a formal game-over condition, so high-score submission needs a Retire Run action or continuous personal-best updates.
-- Save compatibility must be explicit from the first release. Never assume Ada enum or record representation remains unchanged.
+- The PyGamer project has roughly 496 KB of application flash after bootloader reservation.
+- The current gameplay loop does not naturally return to the title screen.
+- The original game has no formal game-over condition.
+- Save compatibility must be explicit from the first release.
+- The original embedded build stack is old enough that compiler and GPRbuild version matching matters.
 
 ## Working Rules
 
-1. Work only on `feature/sd-save-highscores` unless intentionally creating a narrower sub-branch.
-2. Keep commits small enough to explain and test.
+1. Work only on `feature/sd-save-highscores` unless intentionally creating a narrower branch.
+2. Keep commits small and testable.
 3. Do not mix broad formatting changes with functional changes.
-4. Update this journal before ending every work session.
-5. Record commands that actually ran, not commands that merely look plausible.
-6. Record test hardware, card format, result, and any visible symptoms.
+4. Update this journal before ending every session.
+5. Record commands that actually ran.
+6. Record hardware, card format, test result, and visible symptoms.
 7. Push completed work before leaving a computer station.
-8. Never commit private credentials, tokens, local paths containing secrets, or card images containing personal data.
+8. Never commit credentials, tokens, or personal card images.
+9. Do not claim a UF2 exists until CI uploads one and its checksum is recorded.
 
 ## End-of-Session Checklist
-
-Run:
 
 ```bash
 git status
 git diff --check
-git log --oneline --decorate -5
+git log --oneline --decorate -10
 ```
 
 Then:
 
-- Build and run the most relevant available tests.
-- Commit all intended changes with a descriptive message.
+- Run the most relevant build or tests.
+- Commit intended changes.
 - Push the branch.
-- Update Current Status, Active Task, and Session Log below.
-- Include the exact next file/function to edit.
+- Update Current Status, Immediate Blocker, Next Exact Task, and Session Log.
+- Name the exact next file and edit.
 
 ## Session Log
+
+### 2026-07-03, build reconstruction and UF2 pipeline
+
+**Starting point**
+
+- Branch: `feature/sd-save-highscores`
+- Starting functional state: stock Motherlode game, documentation-only SD save branch
+- Work environment: GitHub-connected tools plus GitHub Actions on Ubuntu 22.04
+- Hardware: PyGamer available; bootloader reached after double-tapping Reset
+
+**Completed**
+
+- Confirmed that the requested branch ZIP was source code, not a flashable UF2.
+- Located the original `convert_to_uf2.sh` process.
+- Added `alire.toml` with pinned historical dependencies.
+- Added GitHub Actions firmware build and artifact packaging.
+- Added pull-request triggering and opened draft PR `#1`.
+- Added diagnostic artifact upload on failed builds.
+- Added compiler, target, and runtime inventory.
+- Tried both the BSP's original `arm-eabi` target and a temporary `arm-elf` compatibility edit.
+- Downloaded and inspected multiple build-diagnostic artifacts.
+
+**Tests and results**
+
+- Alire installation succeeds.
+- Dependency resolution succeeds.
+- `arm-eabi-gcc` is installed.
+- `zfp-cortex-m4f` runtime directory is installed.
+- GPRbuild fails before compiling Motherlode source because it cannot match the Ada compiler, target, and runtime.
+- No ELF, BIN, or UF2 was produced.
+- No firmware was copied to the PyGamer.
+
+**Problems or unresolved questions**
+
+- Why the selected system GPRbuild cannot discover the installed `arm-eabi` GNAT configuration.
+- Which packaged GPRbuild version best matches GNAT ARM 10.3.1 and the old BSP.
+- Whether a generated GPR configuration file will be needed after switching GPRbuild.
+
+**Next exact action**
+
+- Edit `alire.toml` to pin an Alire-packaged GPRbuild, remove the temporary `arm-elf` patch from `.github/workflows/build-pygamer-uf2.yml`, and rerun CI with the original `arm-eabi` target.
 
 ### 2026-07-03, repository setup and architecture
 
@@ -320,26 +525,21 @@ Then:
 
 - Forked `Fabien-Chouteau/motherlode` to `jdburgie/motherlode`.
 - Created `feature/sd-save-highscores` from `master`.
-- Inspected the player, world, main loop, and title screen architecture.
-- Confirmed the relevant PyGamer SD pins and separate screen/SD SPI controllers.
-- Added `docs/SD_SAVE_DESIGN.md` in commit `d126e06`.
-- Added `PROJECT_JOURNAL.md` in commit `28ff779`.
-- Linked the journal and design document from the README in commit `83f0c7f`.
+- Inspected player, world, main loop, and title-screen architecture.
+- Confirmed relevant PyGamer SD pins and separate screen/SD SPI controllers.
+- Added `docs/SD_SAVE_DESIGN.md`.
+- Added and linked this project journal.
 
 **Tests**
 
 - Repository permissions and branch creation verified through GitHub.
-- No firmware build or hardware test performed yet.
+- No firmware build or hardware test performed in this first session.
 
-**Next action**
+**Next action at that time**
 
-- Clone the branch on a development workstation.
-- Reproduce the original clean build.
-- Append the exact installation and build commands here.
+- Reproduce the original clean build before implementing persistence.
 
 ## New Session Entry Template
-
-Copy this section to the top of the Session Log after each work session:
 
 ````markdown
 ### YYYY-MM-DD, short session title
