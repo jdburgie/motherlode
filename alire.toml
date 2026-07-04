@@ -1,0 +1,19 @@
+name = "motherlode"
+version = "0.1.1-dev"
+description = "Motherlode for Adafruit PyGamer with planned SD save support"
+website = "https://github.com/jdburgie/motherlode"
+licenses = "MIT"
+maintainers = ["Jon Burgermeister <jdburgie@gmail.com>"]
+maintainers-logins = ["jdburgie"]
+tags = ["pygamer", "game", "embedded", "ada"]
+project-files = ["motherlode.gpr"]
+
+[configuration]
+disabled = true
+
+[[depends-on]]
+pygamer_bsp = "=0.1.0"
+geste = "=1.0.0"
+virtapu = "=0.1.1"
+gnat_arm_elf = "=10.3.1"
+gprbuild = "*"
