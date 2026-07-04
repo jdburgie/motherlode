@@ -88,7 +88,8 @@ The finished modification should support:
 - Build diagnostics are uploaded even when compilation fails.
 - Draft PR `#1` opened so pull-request workflow runs and logs can be inspected.
 - CI now builds the stock game from this branch and uploads a UF2 artifact.
-- Latest successful CI run: `28698247768`.
+- Latest successful CI run: `28698499607`.
+- Latest artifact source commit: `eb389ac53eb790f1243cd34db88103f86c77e43e`.
 - Latest UF2 artifact checksum: `af6db71daf83751ca0e814ee90603a6c186f011964d6aac63486b8d1b571a38f`.
 - The PyGamer USB bootloader was reached after double-tapping Reset. No new firmware was flashed.
 
@@ -141,6 +142,232 @@ python3 uf2conv.py -b 0x4000 -c -o motherlode.uf2 obj_target/motherlode.bin
 ```
 
 The old script used Python 2. The CI workflow has been modernized to use Python 3.
+
+## Build Reconstruction Notes
+
+This section records the practical path from a non-building source branch to a CI-produced UF2. Keep it intact unless the build process is replaced by a simpler known-good path.
+
+### Important outcome
+
+The branch now builds a flashable firmware artifact in GitHub Actions, but the firmware is still stock gameplay. Getting the build green did not implement SD save/load support.
+
+Latest known-good CI build:
+
+```text
+Workflow: Build PyGamer UF2
+Run:      28698499607
+Commit:   eb389ac53eb790f1243cd34db88103f86c77e43e
+Artifact: motherlode-sd-save-highscores-uf2
+UF2:      motherlode-sd-save-highscores.uf2
+SHA-256:  af6db71daf83751ca0e814ee90603a6c186f011964d6aac63486b8d1b571a38f
+```
+
+The same firmware bytes were produced at `0e24821`; the later `eb389ac` run only adds journal documentation, so the binary checksum stayed unchanged.
+
+### Local machine limitation
+
+The local macOS workspace did not have `alr` or `gprbuild` on `PATH`, so the reliable build environment was GitHub Actions. Local checks used Git, shell inspection, and downloaded CI artifacts. Do not assume local `alr build` works until Alire and the ARM GNAT toolchain are installed locally.
+
+Useful local checks:
+
+```bash
+which alr
+which gprbuild
+git status --short --branch
+git diff --check
+gh run list --branch feature/sd-save-highscores --limit 5
+gh run view <run-id> --log-failed
+gh run download <run-id> -n motherlode-build-diagnostics -D /private/tmp/motherlode-diagnostics-<run-id>
+gh run download <run-id> -n motherlode-sd-save-highscores-uf2 -D dist-<commit>
+```
+
+### Dependency pins that worked
+
+The first Alire manifest used `gprbuild = "*"`, which selected the system GPRbuild package on Ubuntu. That failed before compiling Motherlode because GPRbuild could not match the ARM Ada compiler, target, and `zfp-cortex-m4f` runtime.
+
+The working manifest pins packaged GPRbuild:
+
+```toml
+[[depends-on]]
+pygamer_bsp = "=0.1.0"
+geste = "=1.0.0"
+virtapu = "=0.1.1"
+gnat_arm_elf = "=10.3.1"
+gprbuild = "=21.0.2"
+```
+
+Do not casually bump these versions while implementing saves. If a dependency must change, first prove the stock game still builds and records a UF2 checksum.
+
+### Failure chain and fixes
+
+1. **Toolchain discovery failed with system GPRbuild.**
+
+   Symptom:
+
+   ```text
+   gprconfig: can't find a toolchain for language 'ada', target 'arm-eabi', runtime 'zfp-cortex-m4f'
+   ```
+
+   Diagnostic findings:
+
+   - `arm-eabi-gcc` existed in the Alire toolchain.
+   - The `zfp-cortex-m4f` runtime directory existed.
+   - `arm-elf-gcc` did not exist.
+   - Patching the BSP target from `arm-eabi` to `arm-elf` only changed the failing label and did not fix discovery.
+
+   Fix:
+
+   - Pin `gprbuild = "=21.0.2"` in `alire.toml`.
+   - Remove the temporary workflow step that edited `pygamer_bsp.gpr`.
+
+2. **Motherlode expected a newer PyGamer screen API than the pinned BSP provided.**
+
+   Symptom:
+
+   ```text
+   render.ads: "Framebuffer_Access" not declared in "Screen"
+   ```
+
+   Cause:
+
+   - The project code used `Screen.Framebuffer_Access`.
+   - The pinned Alire `pygamer_bsp = 0.1.0` package does not expose that access type.
+
+   Fix:
+
+   - Add a local `Render.Frame_Buffer_Access` type.
+   - Declare `FB1` and `FB2` as aliased `Frame_Buffer` objects.
+   - Make `Refresh_Screen` accept `Render.Frame_Buffer_Access`.
+
+3. **The attempted DMA refresh path was not available in the pinned BSP.**
+
+   Symptom:
+
+   ```text
+   render.adb: "Wait_End_Of_DMA" not declared in "Screen"
+   render.adb: "Start_DMA" not declared in "Screen"
+   ```
+
+   Cause:
+
+   - The `pygamer_bsp = 0.1.0` API has `Push_Pixels`, not the later DMA helpers.
+
+   Fix:
+
+   - Change `Refresh_Screen` to:
+
+   ```ada
+   Screen.Set_Address (X_Start => 0,
+                       X_End   => Screen.Width - 1,
+                       Y_Start => 0,
+                       Y_End   => Screen.Height - 1);
+
+   Screen.Start_Pixel_TX;
+   Screen.Push_Pixels (Acc.all);
+   Screen.End_Pixel_TX;
+   ```
+
+   Hardware risk:
+
+   - This is a synchronous screen update path. It may be slower than the original intended DMA path and must be smoke-tested on the PyGamer before feature work proceeds too far.
+
+4. **A dependency used an Ada 202x feature.**
+
+   Symptom:
+
+   ```text
+   sam-sercom-spi.adb: delta_aggregate is an Ada 202x feature
+   compile with -gnatX
+   ```
+
+   Fix:
+
+   - Add `-cargs:Ada -gnatX` to the CI build command:
+
+   ```bash
+   alr build -- -XMOTHERLODE_BUILD=Production -cargs:Ada -gnatX
+   ```
+
+5. **UF2 conversion failed because the modern converter needs family metadata.**
+
+   Symptom:
+
+   ```text
+   FileNotFoundError: uf2families.json
+   ```
+
+   Cause:
+
+   - The workflow downloaded only `uf2conv.py` from the current Microsoft UF2 repo.
+   - The current converter loads `uf2families.json` from the same directory.
+
+   Fix:
+
+   - Download both files before conversion:
+
+   ```bash
+   curl --fail --location --silent --show-error \
+     --output uf2conv.py \
+     https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2conv.py
+   curl --fail --location --silent --show-error \
+     --output uf2families.json \
+     https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2families.json
+   ```
+
+### Working CI build and packaging sequence
+
+The workflow's successful firmware path is:
+
+```bash
+alr --version
+alr update
+alr printenv
+alr build -- -XMOTHERLODE_BUILD=Production -cargs:Ada -gnatX
+test -f obj_target/motherlode.elf
+
+alr exec -- bash -lc '
+  set -euo pipefail
+  OBJCOPY="$(command -v arm-eabi-objcopy || command -v arm-none-eabi-objcopy || command -v arm-elf-objcopy)"
+  "${OBJCOPY}" -O binary obj_target/motherlode.elf dist/motherlode-sd-save-highscores.bin
+'
+
+python3 uf2conv.py \
+  -b 0x4000 \
+  -c \
+  -o dist/motherlode-sd-save-highscores.uf2 \
+  dist/motherlode-sd-save-highscores.bin
+```
+
+The `-b 0x4000` base address follows the original repository's conversion process and matches the PyGamer bootloader reservation.
+
+### Artifact contents
+
+Successful firmware artifacts contain:
+
+```text
+motherlode-sd-save-highscores.bin
+motherlode-sd-save-highscores.elf
+motherlode-sd-save-highscores.uf2
+SHA256SUMS.txt
+SOURCE_COMMIT.txt
+```
+
+Downloaded artifacts are intentionally left untracked in local folders such as `dist/` or `dist-eb389ac/`. Do not commit firmware binaries unless there is an explicit release-artifact decision.
+
+### What to verify on hardware
+
+Before starting SD-save implementation, flash the current UF2 and check:
+
+- The title screen appears.
+- Joystick/menu controls respond.
+- The game starts.
+- The pod moves and drills.
+- Cargo/store/equipment screens still render.
+- Audio still works.
+- Frame rate is acceptable with synchronous `Push_Pixels`.
+- The PyGamer reboots cleanly after copying the UF2 to `PYGAMERBOOT`.
+
+If the display is too slow or visibly broken, revisit the BSP/API choice before writing save logic. A tempting path is to move to a newer PyGamer BSP with DMA helpers, but that must be done as its own build-restoration task with the stock game kept green.
 
 ## Build Workflow Behavior
 
