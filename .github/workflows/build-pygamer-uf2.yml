@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          alr build -- -XMOTHERLODE_BUILD=Production 2>&1 | tee diagnostics/build.log
+          alr build -- -XMOTHERLODE_BUILD=Production -cargs:Ada -gnatX 2>&1 | tee diagnostics/build.log
           test -f obj_target/motherlode.elf
 
       - name: Convert ELF to UF2
