@@ -4,6 +4,15 @@ inspired by the original [Motherload](http://www.xgenstudios.com/play/motherload
 
 Art from [kenney.nl](https://kenney.nl), font from [nfggames fontmaker](https://nfggames.com/games/fontmaker/).
 
+## SD Save Development
+
+Work on SD-card game saves and persistent high scores is tracked on the `feature/sd-save-highscores` branch.
+
+- [Project journal and resume guide](PROJECT_JOURNAL.md)
+- [SD save-system design](docs/SD_SAVE_DESIGN.md)
+
+Start with the project journal when resuming work from another computer.
+
 # Installation
 
 If you have PyGamer:
