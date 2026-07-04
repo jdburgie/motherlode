@@ -32,6 +32,20 @@ jobs:
           alr update 2>&1 | tee diagnostics/alire-update.log
           alr printenv 2>&1 | tee diagnostics/alire-environment.log
 
+      - name: Inventory ARM toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            alr exec -- env
+            alr exec -- sh -c 'ls -la "$GNAT_ARM_ELF_ALIRE_PREFIX/bin"'
+            alr exec -- sh -c 'arm-eabi-gcc -v || true'
+            alr exec -- sh -c 'arm-elf-gcc -v || true'
+            alr exec -- sh -c 'arm-none-eabi-gcc -v || true'
+            alr exec -- sh -c 'gprconfig --show-targets || true'
+            alr exec -- sh -c 'find "$GNAT_ARM_ELF_ALIRE_PREFIX" -maxdepth 5 -type d | sort'
+          } 2>&1 | tee diagnostics/toolchain-inventory.log
+
       - name: Build production firmware
         shell: bash
         run: |
