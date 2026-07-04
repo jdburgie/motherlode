@@ -1,0 +1,67 @@
+name: Build PyGamer UF2
+
+on:
+  push:
+    branches:
+      - feature/sd-save-highscores
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Alire
+        uses: alire-project/setup-alire@v6
+
+      - name: Resolve pinned toolchain and dependencies
+        run: |
+          alr --version
+          alr update
+          alr printenv
+
+      - name: Build production firmware
+        run: |
+          alr build -- -XMOTHERLODE_BUILD=Production
+          test -f obj_target/motherlode.elf
+
+      - name: Convert ELF to UF2
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          alr exec -- bash -lc '
+            set -euo pipefail
+            OBJCOPY="$(command -v arm-eabi-objcopy || command -v arm-none-eabi-objcopy || command -v arm-elf-objcopy)"
+            echo "Using objcopy: ${OBJCOPY}"
+            "${OBJCOPY}" -O binary obj_target/motherlode.elf dist/motherlode-sd-save-highscores.bin
+          '
+
+          curl --fail --location --silent --show-error \
+            --output uf2conv.py \
+            https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2conv.py
+
+          python3 uf2conv.py \
+            -b 0x4000 \
+            -c \
+            -o dist/motherlode-sd-save-highscores.uf2 \
+            dist/motherlode-sd-save-highscores.bin
+
+          cp obj_target/motherlode.elf dist/motherlode-sd-save-highscores.elf
+          sha256sum dist/* | tee dist/SHA256SUMS.txt
+          git rev-parse HEAD > dist/SOURCE_COMMIT.txt
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: motherlode-sd-save-highscores-uf2
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
