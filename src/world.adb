@@ -29,6 +29,34 @@ package body World is
    end Get_Cell;
 
    -----------------
+   -- Export_Cell --
+   -----------------
+
+   function Export_Cell (Kind : Cell_Kind) return Persisted_Cell
+   is (case Kind is
+          when Empty   => 0,
+          when Dirt    => 1,
+          when Rock    => 2,
+          when Coal    => 3,
+          when Iron    => 4,
+          when Gold    => 5,
+          when Diamond => 6);
+
+   -----------------
+   -- Import_Cell --
+   -----------------
+
+   function Import_Cell (Value : Persisted_Cell) return Cell_Kind
+   is (case Value is
+          when 0 => Empty,
+          when 1 => Dirt,
+          when 2 => Rock,
+          when 3 => Coal,
+          when 4 => Iron,
+          when 5 => Gold,
+          when 6 => Diamond);
+
+   -----------------
    -- Choose_Cell --
    -----------------
 
