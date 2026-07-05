@@ -120,7 +120,9 @@ Invoke-NativeCommand -FilePath 'gprbuild' `
         '-p',
         '-P', (Join-Path $Root 'motherlode.gpr'),
         "-XMOTHERLODE_BUILD=$Configuration",
-        "-XMOTHERLODE_BUILD_CHECKS=$Checks"
+        "-XMOTHERLODE_BUILD_CHECKS=$Checks",
+        '-cargs:Ada',
+        '-gnatX'
     ) `
     -Description 'gprbuild'
 
