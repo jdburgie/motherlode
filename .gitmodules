@@ -16,3 +16,6 @@
 [submodule "vendor/virtapu"]
 	path = vendor/virtapu
 	url = https://github.com/Fabien-Chouteau/VirtAPU.git
+[submodule "vendor/uf2"]
+	path = vendor/uf2
+	url = https://github.com/microsoft/uf2.git
