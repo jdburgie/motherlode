@@ -1,0 +1,18 @@
+[submodule "vendor/pygamer-bsp"]
+	path = vendor/pygamer-bsp
+	url = https://github.com/Fabien-Chouteau/pygamer-bsp.git
+[submodule "vendor/samd51-hal"]
+	path = vendor/samd51-hal
+	url = https://github.com/Fabien-Chouteau/samd51-hal.git
+[submodule "vendor/cortex-m"]
+	path = vendor/cortex-m
+	url = https://github.com/Fabien-Chouteau/cortex-m.git
+[submodule "vendor/hal"]
+	path = vendor/hal
+	url = https://github.com/Fabien-Chouteau/hal.git
+[submodule "vendor/geste"]
+	path = vendor/geste
+	url = https://github.com/Fabien-Chouteau/GESTE.git
+[submodule "vendor/virtapu"]
+	path = vendor/virtapu
+	url = https://github.com/Fabien-Chouteau/VirtAPU.git
