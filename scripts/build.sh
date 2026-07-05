@@ -58,7 +58,8 @@ fi
 
 gprbuild -p -P "$ROOT/motherlode.gpr" \
     "-XMOTHERLODE_BUILD=$CONFIGURATION" \
-    "-XMOTHERLODE_BUILD_CHECKS=$CHECKS"
+    "-XMOTHERLODE_BUILD_CHECKS=$CHECKS" \
+    -cargs:Ada -gnatX
 
 ELF="$ROOT/obj_target/motherlode.elf"
 BIN="$ROOT/build/motherlode.bin"
