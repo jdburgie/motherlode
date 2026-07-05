@@ -33,6 +33,28 @@ The fixes under development are available from the
 [current branch build source](https://github.com/jdburgie/motherlode/tree/fix/world-generation-readme).
 A branch-specific UF2 release will be linked here when one is published.
 
+# Source checkout and pinned libraries
+
+All source libraries are pinned as Git submodules under `vendor/`. Clone with:
+
+```sh
+git clone --recurse-submodules https://github.com/jdburgie/motherlode.git
+cd motherlode
+git checkout fix/world-generation-readme
+git submodule update --init --recursive
+```
+
+For an existing checkout:
+
+```sh
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+The exact versions and commit IDs are recorded in `DEPENDENCIES.lock`.
+The compiler and GPRbuild remain external platform tools; the required target is
+`arm-eabi` with the `zfp-cortex-m4f` Ada runtime.
+
 # Controls
  - `joystick up/left/right`: Fly the pod
  - `A + joystick down/left/right`: Use the drill
