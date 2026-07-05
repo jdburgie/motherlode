@@ -18,28 +18,20 @@ package body Render is
    Font_Tiles : Font_Tile_Pixel_Data;
    pragma Import (C, Font_Tiles, "font_tiles");
 
-   First_TX : Boolean := True;
-
    --------------------
    -- Refresh_Screen --
    --------------------
 
-   procedure Refresh_Screen (Acc : not null Screen.Framebuffer_Access) is
+   procedure Refresh_Screen (Acc : not null Framebuffer_Access) is
    begin
-      if not First_TX then
-         Screen.Wait_End_Of_DMA;
-         Screen.End_Pixel_TX;
-      else
-         First_TX := False;
-      end if;
-
       Screen.Set_Address (X_Start => 0,
                           X_End   => Screen.Width - 1,
                           Y_Start => 0,
                           Y_End   => Screen.Height - 1);
 
       Screen.Start_Pixel_TX;
-      Screen.Start_DMA (Acc);
+      Screen.Push_Pixels (Acc.all);
+      Screen.End_Pixel_TX;
    end Refresh_Screen;
 
    ---------------
