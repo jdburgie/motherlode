@@ -6,6 +6,7 @@ with SAM.Port;
 with SAM.ADC;
 with SAM.Clock_Generator;
 with SAM.Clock_Generator.IDs;
+with SAM.Clock_Setup_120Mhz;
 with SAM.Main_Clock;
 with SAM.Functions;
 
@@ -67,7 +68,7 @@ package body Controls is
 
       SAM.Clock_Generator.Configure_Periph_Channel
         (SAM.Clock_Generator.IDs.ADC1,
-         SAM.Clock_Generator.Clk_48Mhz);
+         SAM.Clock_Setup_120Mhz.Clk_48Mhz);
       SAM.Main_Clock.ADC1_On;
 
       ADC.Configure (Resolution        => SAM.ADC.Res_8bit,
