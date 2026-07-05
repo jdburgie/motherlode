@@ -66,7 +66,8 @@ package body Controls is
       Joy_Y.Set_Function (SAM.Functions.PB06_ADC1_AIN8);
 
       SAM.Clock_Generator.Configure_Periph_Channel
-        (SAM.Clock_Generator.IDs.ADC1, Clk_48Mhz);
+        (SAM.Clock_Generator.IDs.ADC1,
+         SAM.Clock_Generator.Clk_48Mhz);
       SAM.Main_Clock.ADC1_On;
 
       ADC.Configure (Resolution        => SAM.ADC.Res_8bit,
