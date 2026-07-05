@@ -8,7 +8,7 @@ This repository is a fork of the original Motherlode project by Fabien Chouteau.
 
 - **Original upstream project:** [Fabien-Chouteau/motherlode](https://github.com/Fabien-Chouteau/motherlode)
 - **Original upstream prebuilt UF2:** [motherlode 0.1.0](https://github.com/Fabien-Chouteau/motherlode/releases/download/0.1.0/motherlode.uf2)
-- **Current self-contained source branch:** [fix/self-contained-build](https://github.com/jdburgie/motherlode/tree/fix/self-contained-build)
+- **Current dependency-complete source branch:** [fix/self-contained-build](https://github.com/jdburgie/motherlode/tree/fix/self-contained-build)
 
 > The downloadable UF2 above is the **original upstream build**. A separate prebuilt UF2 for this branch has not yet been published.
 
@@ -30,8 +30,8 @@ If you have a PyGamer:
 # Source checkout and pinned libraries
 
 All required source libraries and the UF2 conversion utility are included as
-pinned Git submodules under `vendor/`. Clone the self-contained source branch
-with:
+pinned Git submodules under `vendor/`. Clone the dependency-complete source
+branch with:
 
 ```sh
 git clone --branch fix/self-contained-build --recurse-submodules \
@@ -46,6 +46,9 @@ git checkout fix/self-contained-build
 git submodule sync --recursive
 git submodule update --init --recursive
 ```
+
+> Do not use GitHub's **Download ZIP** for a build checkout. ZIP downloads do
+> not contain Git submodule source. Use the recursive Git clone above.
 
 The exact versions, source repositories, licenses, and commit IDs are recorded
 in `DEPENDENCIES.lock`. The build scripts verify every checked-out dependency
