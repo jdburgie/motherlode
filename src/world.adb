@@ -40,23 +40,29 @@ package body World is
       ----------------
 
       function From_Proba return Cell_Kind is
-         Total : Natural := 0;
-         Value : Natural := 0;
+         Total         : Natural := 0;
+         Choice        : Natural;
+         Running_Total : Natural := 0;
       begin
          for Elt of Proba loop
             Total := Total + Elt;
          end loop;
 
-         Value := Natural (Float (Total) * Rand);
+         if Total = 0 then
+            return Rock;
+         end if;
 
-         Total := 0;
+         --  Rand is always less than 1.0, so Choice is in 0 .. Total - 1.
+         Choice := Natural (Float (Total) * Rand);
+
          for Kind in Cell_Kind loop
-            if Value in Total .. Total + Proba (Kind) then
+            Running_Total := Running_Total + Proba (Kind);
+            if Choice < Running_Total then
                return Kind;
-            else
-               Total := Total + Proba (Kind);
             end if;
          end loop;
+
+         --  Defensive fallback for unexpected arithmetic behavior.
          return Rock;
       end From_Proba;
    begin
@@ -116,18 +122,16 @@ package body World is
                          Rock    => 50);
          end case;
 
-         --  Neighboor Bonus
+         --  Generation runs one complete column at a time. Only the left and
+         --  upper neighbors have already been generated, so using right or
+         --  lower cells would bias the result toward stale or Empty values.
          if CX > 0 then
-            Proba (Get_Cell (CX - 1, CY)) := Proba (Get_Cell (CX - 1, CY)) + 20;
+            Proba (Get_Cell (CX - 1, CY)) :=
+              Proba (Get_Cell (CX - 1, CY)) + 20;
          end if;
          if CY > 0 then
-            Proba (Get_Cell (CX, CY - 1)) := Proba (Get_Cell (CX, CY - 1)) + 20;
-         end if;
-         if CX < Ground_Width - 1 then
-            Proba (Get_Cell (CX + 1, CY)) := Proba (Get_Cell (CX + 1, CY)) + 20;
-         end if;
-         if CY < Ground_Depth - 1 then
-            Proba (Get_Cell (CX, CY - 1)) := Proba (Get_Cell (CX, CY - 1)) + 20;
+            Proba (Get_Cell (CX, CY - 1)) :=
+              Proba (Get_Cell (CX, CY - 1)) + 20;
          end if;
 
          return From_Proba;
@@ -141,6 +145,7 @@ package body World is
    procedure Generate_Ground is
    begin
       Seed := 5000 + UInt32 (PyGamer.Time.Clock mod 323);
+      Ground := (others => Empty);
 
       for X in 0 .. Ground_Width - 1 loop
          for Y in 0 .. Ground_Depth - 1 loop
