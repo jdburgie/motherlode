@@ -5,7 +5,7 @@ with HAL; use HAL;
 
 with PyGamer; use PyGamer;
 with PyGamer.Time;
-with PyGamer.Controls; use PyGamer.Controls;
+with Controls; use Controls;
 with PyGamer.Screen;
 
 with Parameters;
@@ -68,7 +68,7 @@ package body Title_Screen is
 
       Sound.Play_Music;
 
-      --  First scan to avoid detectin a falling edge when a button is pressed
+      --  First scan to avoid detecting a press edge when a button is held
       --  during reset.
       Controls.Scan;
 
@@ -76,12 +76,9 @@ package body Title_Screen is
          Controls.Scan;
 
          if Falling (A)
-           or else
-            Falling (B)
-           or else
-            Falling (Start)
-           or else
-            Falling (Sel)
+           or else Falling (B)
+           or else Falling (Start)
+           or else Falling (Sel)
          then
             if Credits then
                Credits := False;
@@ -92,10 +89,7 @@ package body Title_Screen is
             end if;
          end if;
 
-         if Falling (Down)
-           or else
-            Controls.Falling (Controls.Up)
-         then
+         if Falling (Down) or else Falling (Up) then
             Selected := not Selected;
          end if;
 
