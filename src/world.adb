@@ -13,10 +13,10 @@ package body World is
    -- Rand --
    ----------
 
-   function Rand return Float is
+   function Rand (Upper_Bound : Positive) return Natural is
    begin
       Seed := 8253729 * Seed + 2396403;
-      return Float (Seed mod 32767) / 32767.0;
+      return Natural (Seed mod UInt32 (Upper_Bound));
    end Rand;
 
    --------------
@@ -52,8 +52,7 @@ package body World is
             return Rock;
          end if;
 
-         --  Rand is always less than 1.0, so Choice is in 0 .. Total - 1.
-         Choice := Natural (Float (Total) * Rand);
+         Choice := Rand (Total);
 
          for Kind in Cell_Kind loop
             Running_Total := Running_Total + Proba (Kind);
