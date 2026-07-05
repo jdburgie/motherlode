@@ -4,13 +4,33 @@ inspired by the original [Motherload](http://www.xgenstudios.com/play/motherload
 
 This repository is a fork of the original Motherlode project by Fabien Chouteau.
 
+## Current branch status
+
+> **BROKEN / NOT PLAYABLE as of July 4, 2026.**
+>
+> The `fix/self-contained-build` branch now builds successfully, produces a UF2,
+> flashes, boots, and displays the title screen on the PyGamer. However, **no
+> controls respond on the title screen**. A, B, Start, Select, and the analog
+> joystick/HAT all fail to move or activate the menu. The attempted local input
+> driver did not fix the hardware behavior.
+>
+> The SD-card slot is also **not supported**. There is no SD block driver, FAT
+> filesystem, asset loading, or save-game implementation in this branch.
+>
+> See [`STATUS.md`](STATUS.md) and
+> [`journal/2026-07-04-controls.md`](journal/2026-07-04-controls.md) for the
+> precise stopping point. Do not treat a successful build as proof that this
+> branch is functional on hardware.
+
 ## Project versions
 
 - **Original upstream project:** [Fabien-Chouteau/motherlode](https://github.com/Fabien-Chouteau/motherlode)
 - **Original upstream prebuilt UF2:** [motherlode 0.1.0](https://github.com/Fabien-Chouteau/motherlode/releases/download/0.1.0/motherlode.uf2)
-- **Current dependency-complete source branch:** [fix/self-contained-build](https://github.com/jdburgie/motherlode/tree/fix/self-contained-build)
+- **Current dependency-complete but non-playable source branch:** [fix/self-contained-build](https://github.com/jdburgie/motherlode/tree/fix/self-contained-build)
 
-> The downloadable UF2 above is the **original upstream build**. A separate prebuilt UF2 for this branch has not yet been published.
+> The downloadable UF2 above is the **original upstream build**. A separate
+> prebuilt UF2 for this branch has not been published. The locally built UF2 from
+> this branch currently boots but does not accept input.
 
 Art from [kenney.nl](https://kenney.nl), font from [nfggames fontmaker](https://nfggames.com/games/fontmaker/).
 
@@ -43,6 +63,7 @@ For an existing checkout:
 
 ```sh
 git checkout fix/self-contained-build
+git pull
 git submodule sync --recursive
 git submodule update --init --recursive
 ```
@@ -67,11 +88,15 @@ stored in Git. Install these tools and place them on `PATH`:
 
 ## Build on Windows PowerShell
 
+The confirmed build command is:
+
 ```powershell
-.\scripts\build.ps1
+.\scripts\build.ps1 -Checks Disabled
 ```
 
-For a production build:
+This currently creates a bootable but non-playable firmware image.
+
+For a production build after hardware input is repaired:
 
 ```powershell
 .\scripts\build.ps1 -Configuration Production -Checks Enabled
@@ -81,7 +106,7 @@ For a production build:
 
 ```sh
 chmod +x scripts/build.sh
-./scripts/build.sh Debug Enabled
+./scripts/build.sh Debug Disabled
 ```
 
 The scripts create:
@@ -94,9 +119,16 @@ The UF2 image is generated for the SAMD51 family at application base address
 `0x4000`, matching the PyGamer bootloader memory layout in the pinned BSP.
 
 # Controls
+
+These are the **intended controls from the game code**, not the current hardware
+status of this branch:
+
  - `joystick up/left/right`: Fly the pod
  - `A + joystick down/left/right`: Use the drill
  - `select`: Enter and exit cargo menu
+
+On the current `fix/self-contained-build` firmware, none of the title-screen
+controls respond, including the joystick/HAT.
 
 Use the drill to gather ores:
 
