@@ -4,7 +4,7 @@
 with PyGamer; use PyGamer;
 with HAL; use HAL;
 with Sound;
-with PyGamer.Controls;
+with Controls;
 with PyGamer.Time;
 
 with Parameters;
