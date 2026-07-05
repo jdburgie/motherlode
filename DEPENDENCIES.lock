@@ -40,10 +40,17 @@ virtapu
   source: https://github.com/Fabien-Chouteau/VirtAPU.git
   license: MIT
 
-# External build tools are platform-specific and are not committed as source
-# submodules:
+uf2
+  version: pinned snapshot
+  commit: 90e9741f217f5a40c98ba74d663e408041037578
+  source: https://github.com/microsoft/uf2.git
+  license: MIT
+  purpose: ELF/binary to UF2 conversion support
+
+# External build tools are platform-specific executables rather than source
+# libraries, so they are not committed as submodules:
 # - Git with submodule support
 # - GNAT ARM Embedded using target arm-eabi
 # - the zfp-cortex-m4f Ada runtime
 # - GPRbuild compatible with that GNAT toolchain
-# - Python 3 plus a UF2 converter when producing a .uf2 image
+# - Python 3
