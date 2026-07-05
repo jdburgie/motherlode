@@ -5,7 +5,7 @@ with HAL; use HAL;
 
 with PyGamer; use PyGamer;
 with PyGamer.Time;
-with PyGamer.Controls;
+with Controls;
 with PyGamer.Screen;
 
 with Parameters;
