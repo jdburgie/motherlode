@@ -13,6 +13,8 @@ package Render is
    subtype Frame_Buffer
      is HAL.UInt16_Array (0 .. (Screen.Width * Screen.Height) - 1);
 
+   type Framebuffer_Access is access all Frame_Buffer;
+
    procedure Draw_Cell (FB   : in out Frame_Buffer;
                         X, Y : Integer;
                         Kind : World.Cell_Kind);
@@ -37,8 +39,8 @@ package Render is
    --  Draw a string with X, Y being at the top left
 
    procedure Draw_String_Left (FB    : in out Frame_Buffer;
-                                 Str   : String;
-                                 X, Y  : Natural);
+                               Str   : String;
+                               X, Y  : Natural);
    --  Draw a string with X, Y being at the top right
 
    procedure Draw_String_Center (FB    : in out Frame_Buffer;
@@ -56,10 +58,10 @@ package Render is
 
    function RGB565 (R, G, B : HAL.UInt8) return HAL.UInt16;
 
-   FB1 : aliased HAL.UInt16_Array := (0 .. (Screen.Width * Screen.Height) - 1 => 0);
-   FB2 : aliased HAL.UInt16_Array := (0 .. (Screen.Width * Screen.Height) - 1 => 0);
+   FB1 : aliased Frame_Buffer := (others => 0);
+   FB2 : aliased Frame_Buffer := (others => 0);
    Flip : Boolean := True;
 
-   procedure Refresh_Screen (Acc : not null Screen.Framebuffer_Access);
+   procedure Refresh_Screen (Acc : not null Framebuffer_Access);
 
 end Render;
