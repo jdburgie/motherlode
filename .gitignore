@@ -1,11 +1,17 @@
-# Object file
+# Object files
 *.o
 
 # Ada Library Information
 *.ali
 
+# Local build products
 alire/
 obj_simulator/
 obj_target/
-uf2conv.py
+build/
+*.elf
+*.bin
 *.uf2
+
+# Dependency build products are contained inside submodules and should not be
+# staged from the parent repository.
