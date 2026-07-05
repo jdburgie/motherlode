@@ -19,6 +19,45 @@ function Require-Command([string]$Name) {
     }
 }
 
+function Invoke-NativeCommand {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$FilePath,
+
+        [string[]]$ArgumentList = @(),
+
+        [Parameter(Mandatory)]
+        [string]$Description
+    )
+
+    # Native tools such as GNAT write normal compiler warnings to stderr.
+    # With ErrorActionPreference='Stop', Windows PowerShell can otherwise turn
+    # those harmless warning lines into terminating NativeCommandError records.
+    $PreviousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $CommandOutput = & $FilePath @ArgumentList 2>&1
+        $ExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $PreviousErrorActionPreference
+    }
+
+    foreach ($Line in $CommandOutput) {
+        if ($Line -is [System.Management.Automation.ErrorRecord]) {
+            Write-Output $Line.Exception.Message
+        }
+        else {
+            Write-Output $Line
+        }
+    }
+
+    if ($ExitCode -ne 0) {
+        throw "$Description failed with exit code $ExitCode."
+    }
+}
+
 Require-Command git
 Require-Command gprbuild
 Require-Command arm-eabi-objcopy
@@ -27,10 +66,12 @@ if (-not $SkipUf2) {
 }
 
 Write-Host 'Initializing pinned source dependencies...'
-git submodule sync --recursive
-if ($LASTEXITCODE -ne 0) { throw 'git submodule sync failed.' }
-git submodule update --init --recursive
-if ($LASTEXITCODE -ne 0) { throw 'git submodule update failed.' }
+Invoke-NativeCommand -FilePath 'git' `
+    -ArgumentList @('submodule', 'sync', '--recursive') `
+    -Description 'git submodule sync'
+Invoke-NativeCommand -FilePath 'git' `
+    -ArgumentList @('submodule', 'update', '--init', '--recursive') `
+    -Description 'git submodule update'
 
 $Expected = [ordered]@{
     'vendor/pygamer-bsp' = '2dba1dd3a9d9e8d5d5e441bdac37242a56ae048d'
@@ -43,8 +84,17 @@ $Expected = [ordered]@{
 }
 
 foreach ($Item in $Expected.GetEnumerator()) {
-    $Actual = (git -C $Item.Key rev-parse HEAD).Trim()
-    if ($LASTEXITCODE -ne 0 -or $Actual -ne $Item.Value) {
+    $PreviousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $Actual = (& git -C $Item.Key rev-parse HEAD 2>&1 | Select-Object -Last 1).ToString().Trim()
+        $GitExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $PreviousErrorActionPreference
+    }
+
+    if ($GitExitCode -ne 0 -or $Actual -ne $Item.Value) {
         throw "Dependency $($Item.Key) is at $Actual; expected $($Item.Value)."
     }
 }
@@ -65,10 +115,14 @@ if ($env:GPR_PROJECT_PATH) {
 $env:GPR_PROJECT_PATH = $ProjectPathEntries -join [IO.Path]::PathSeparator
 
 Write-Host "Building Motherlode ($Configuration, checks $Checks)..."
-& gprbuild '-p' '-P' (Join-Path $Root 'motherlode.gpr') `
-    "-XMOTHERLODE_BUILD=$Configuration" `
-    "-XMOTHERLODE_BUILD_CHECKS=$Checks"
-if ($LASTEXITCODE -ne 0) { throw "gprbuild failed with exit code $LASTEXITCODE." }
+Invoke-NativeCommand -FilePath 'gprbuild' `
+    -ArgumentList @(
+        '-p',
+        '-P', (Join-Path $Root 'motherlode.gpr'),
+        "-XMOTHERLODE_BUILD=$Configuration",
+        "-XMOTHERLODE_BUILD_CHECKS=$Checks"
+    ) `
+    -Description 'gprbuild'
 
 $Elf = Join-Path $Root 'obj_target/motherlode.elf'
 if (-not (Test-Path $Elf)) {
@@ -80,13 +134,22 @@ New-Item -ItemType Directory -Force -Path $BuildDirectory | Out-Null
 $Binary = Join-Path $BuildDirectory 'motherlode.bin'
 $Uf2 = Join-Path $BuildDirectory 'motherlode.uf2'
 
-& arm-eabi-objcopy '-O' 'binary' $Elf $Binary
-if ($LASTEXITCODE -ne 0) { throw 'arm-eabi-objcopy failed.' }
+Invoke-NativeCommand -FilePath 'arm-eabi-objcopy' `
+    -ArgumentList @('-O', 'binary', $Elf, $Binary) `
+    -Description 'arm-eabi-objcopy'
 
 if (-not $SkipUf2) {
     $Uf2Converter = Join-Path $Root 'vendor/uf2/utils/uf2conv.py'
-    & python $Uf2Converter '-c' '-b' '0x4000' '-f' 'SAMD51' '-o' $Uf2 $Binary
-    if ($LASTEXITCODE -ne 0) { throw 'UF2 conversion failed.' }
+    Invoke-NativeCommand -FilePath 'python' `
+        -ArgumentList @(
+            $Uf2Converter,
+            '-c',
+            '-b', '0x4000',
+            '-f', 'SAMD51',
+            '-o', $Uf2,
+            $Binary
+        ) `
+        -Description 'UF2 conversion'
     Write-Host "UF2 image: $Uf2"
 }
 
