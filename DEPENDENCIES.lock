@@ -1,0 +1,49 @@
+# Motherlode source dependency lock
+#
+# These repositories are included as Git submodules under vendor/ and pinned
+# by gitlink SHA. Do not update a dependency without updating this file and
+# verifying the PyGamer build.
+
+pygamer-bsp
+  version: 0.1.0
+  commit: 2dba1dd3a9d9e8d5d5e441bdac37242a56ae048d
+  source: https://github.com/Fabien-Chouteau/pygamer-bsp.git
+  license: BSD-3-Clause
+
+samd51-hal
+  version: 0.1.0
+  commit: 3edd815bab9a8a4df15bd459f679a2465a9208ac
+  source: https://github.com/Fabien-Chouteau/samd51-hal.git
+  license: BSD-3-Clause
+
+cortex-m
+  version: 0.1.0
+  commit: 8c24b76979aa7fb86019006111007f4272dfe89c
+  source: https://github.com/Fabien-Chouteau/cortex-m.git
+  license: BSD-3-Clause
+
+hal
+  version: 0.1.0
+  commit: 92eb1f60b352230352c41137b6983d0bb5e1b7ff
+  source: https://github.com/Fabien-Chouteau/hal.git
+  license: BSD-3-Clause
+
+geste
+  version: 1.0.0
+  commit: 9e99f066c49b3fccd02420b899d8ef95eeb0eb1b
+  source: https://github.com/Fabien-Chouteau/GESTE.git
+  license: BSD-3-Clause
+
+virtapu
+  version: 0.1.1
+  commit: bc5b7bf6cace9637208662e0dafb0b5c72b603f6
+  source: https://github.com/Fabien-Chouteau/VirtAPU.git
+  license: MIT
+
+# External build tools are platform-specific and are not committed as source
+# submodules:
+# - Git with submodule support
+# - GNAT ARM Embedded using target arm-eabi
+# - the zfp-cortex-m4f Ada runtime
+# - GPRbuild compatible with that GNAT toolchain
+# - Python 3 plus a UF2 converter when producing a .uf2 image
